@@ -37,7 +37,7 @@ cargo install --path . --locked --root ~/.local
 
 The indicator in this demo appears on the right side of the bar.
 
-https://github.com/user-attachments/assets/0aa50832-bfd5-48ae-9eae-a4c6566069be
+https://github.com/user-attachments/assets/0b8352fa-634e-43fe-90da-15a4be9bc678
 
 ## Usage
 
