@@ -5,27 +5,24 @@ focused column and updates from niri's direct IPC event stream.
 
 **Requirements:** `niri` and a Rust toolchain with Cargo.
 
-## Build
+## Install from crates.io
 
-Clone the repository and build:
+Install the published release from crates.io:
 
 ```sh
-git clone https://github.com/viacoffee/niri-column-indicator.git
-cd niri-column-indicator
-cargo build --release
+cargo install niri-column-indicator --locked
 ```
 
-The binary is written to `target/release/niri-column-indicator`.
+Cargo installs the binary in its bin directory, usually `~/.cargo/bin`. Ensure
+that directory is on the `PATH` used by your bar.
 
-## Install
+## Install from source
 
-From the repository root, install the release binary with Cargo:
+From the repository root, install the current checkout with Cargo:
 
 ```sh
 cargo install --path . --locked
 ```
-
-Cargo installs it in its bin directory, usually `~/.cargo/bin`. Ensure that directory is on the `PATH` used by your bar.
 
 To install it in `~/.local/bin` instead:
 
@@ -63,3 +60,27 @@ for line-oriented text output. Or [contribute](#integrations) a new output forma
 Integration examples for other bars are welcome. Add each example in its own
 top-level directory and link it here. If an integration needs a new output
 format, add it to [OutputFormat](src/main.rs).
+
+## Local development
+
+Clone the repository and build a development binary:
+
+```sh
+git clone https://github.com/viacoffee/niri-column-indicator.git
+cd niri-column-indicator
+cargo build
+```
+
+Run the test suite with:
+
+```sh
+cargo test
+```
+
+Build an optimized release binary with:
+
+```sh
+cargo build --release
+```
+
+The binary is written to `target/release/niri-column-indicator`.
