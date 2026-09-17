@@ -1,9 +1,14 @@
 [package]
 name = "niri-column-indicator"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "Column indicator for niri's scrolling layout"
 license = "GPL-3.0-or-later"
+repository = "https://github.com/viacoffee/niri-column-indicator"
+homepage = "https://github.com/viacoffee/niri-column-indicator"
+documentation = "https://docs.rs/niri-column-indicator"
+keywords = ["niri", "waybar", "statusbar", "indicator"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
