@@ -32,6 +32,9 @@ struct Config {
     active: String,
 
     #[arg(long)]
+    separator: Option<String>,
+
+    #[arg(long)]
     hide_single: bool,
 
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
@@ -173,10 +176,10 @@ fn render(config: &Config, state: &State) -> String {
         return String::new();
     }
 
-    let separator = match config.layout {
+    let separator = config.separator.as_deref().unwrap_or(match config.layout {
         Layout::Horizontal => " ",
         Layout::Vertical => "\n",
-    };
+    });
     let mut text = String::new();
     for (index, is_active) in columns.into_values().enumerate() {
         if index > 0 {
@@ -261,6 +264,7 @@ mod tests {
             layout: Layout::Horizontal,
             inactive: "o".into(),
             active: "x".into(),
+            separator: None,
             hide_single: false,
             output: OutputFormat::Json,
         }
@@ -308,6 +312,68 @@ mod tests {
             have_windows: true,
         };
         assert_eq!(render(&config(), &state), "o x");
+    }
+
+    #[test]
+    fn uses_a_custom_separator() {
+        let mut config = config();
+        config.separator = Some(" | ".into());
+        let state = State {
+            windows: HashMap::from([
+                (
+                    1,
+                    Window {
+                        workspace: Some(1),
+                        floating: false,
+                        position: Some((0, 0)),
+                    },
+                ),
+                (
+                    2,
+                    Window {
+                        workspace: Some(1),
+                        floating: false,
+                        position: Some((1, 0)),
+                    },
+                ),
+            ]),
+            focused_window: Some(1),
+            focused_workspace: Some(1),
+            have_windows: true,
+        };
+
+        assert_eq!(render(&config, &state), "x | o");
+    }
+
+    #[test]
+    fn uses_a_newline_separator_for_vertical_layout() {
+        let mut config = config();
+        config.layout = Layout::Vertical;
+        let state = State {
+            windows: HashMap::from([
+                (
+                    1,
+                    Window {
+                        workspace: Some(1),
+                        floating: false,
+                        position: Some((0, 0)),
+                    },
+                ),
+                (
+                    2,
+                    Window {
+                        workspace: Some(1),
+                        floating: false,
+                        position: Some((1, 0)),
+                    },
+                ),
+            ]),
+            focused_window: Some(1),
+            focused_workspace: Some(1),
+            have_windows: true,
+        };
+
+        assert_eq!(render(&config, &state), "x\no");
     }
 
     #[test]

@@ -39,7 +39,7 @@ https://github.com/user-attachments/assets/0b8352fa-634e-43fe-90da-15a4be9bc678
 ## Usage
 
 ```sh
-niri-column-indicator [--layout horizontal|vertical] [--inactive CHARACTER] [--active CHARACTER] [--hide-single] [--output=json|plain]
+niri-column-indicator [--layout horizontal|vertical] [--inactive CHARACTER] [--active CHARACTER] [--separator SEPARATOR] [--hide-single] [--output=json|plain]
 ```
 
 By default, output is JSON (used by Waybar custom modules). Use `--output=plain`
@@ -50,6 +50,7 @@ for line-oriented text output. Or [contribute](#integrations) a new output forma
 | `--layout horizontal\|vertical` | Layout orientation. Default: `horizontal`. |
 | `--inactive CHARACTER` | Indicator for an unfocused column. Default: `○`. |
 | `--active CHARACTER` | Indicator for the focused column. Default: `●`. |
+| `--separator SEPARATOR` | Text between indicators. Defaults to a space for horizontal layout and a newline for vertical layout. |
 | `--hide-single` | Print no indicator when the workspace has zero or one column. |
 | `--output=json\|plain` | Select output format. Default: `json`. |
 

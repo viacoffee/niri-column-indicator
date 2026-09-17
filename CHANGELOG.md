@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Configurable separator between column indicators.
+
 ## [1.0.0] - 2026-09-10
 
 ### Added
