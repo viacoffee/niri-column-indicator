@@ -6,6 +6,10 @@
 
 - Configurable separator between column indicators.
 
+### Fixed
+
+- Clear stale column focus when a window update reports that the focused window has lost focus.
+
 ## [1.0.0] - 2026-09-10
 
 ### Added

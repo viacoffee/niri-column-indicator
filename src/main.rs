@@ -73,10 +73,15 @@ fn update_window(window: &IpcWindow, state: &mut State) -> bool {
         .get(&window.id)
         .is_some_and(|old| is_visible(old, state.focused_workspace));
     let changed = state.windows.get(&window.id) != Some(&current);
-    let focus_changed = window.is_focused && state.focused_window != Some(window.id);
-    if focus_changed {
-        state.focused_window = Some(window.id);
-    }
+    let focused_window = if window.is_focused {
+        Some(window.id)
+    } else if state.focused_window == Some(window.id) {
+        None
+    } else {
+        state.focused_window
+    };
+    let focus_changed = state.focused_window != focused_window;
+    state.focused_window = focused_window;
     let is_visible = is_visible(&current, state.focused_workspace);
     state.windows.insert(window.id, current);
 
@@ -268,6 +273,84 @@ mod tests {
             hide_single: false,
             output: OutputFormat::Json,
         }
+    }
+
+    fn ipc_window(id: u64, is_focused: bool) -> IpcWindow {
+        IpcWindow {
+            id,
+            title: None,
+            app_id: None,
+            pid: None,
+            workspace_id: Some(1),
+            is_focused,
+            is_floating: false,
+            is_urgent: false,
+            layout: niri_ipc::WindowLayout {
+                pos_in_scrolling_layout: Some((1, 1)),
+                tile_size: (0.0, 0.0),
+                window_size: (0, 0),
+                tile_pos_in_workspace_view: None,
+                window_offset_in_tile: (0.0, 0.0),
+            },
+            focus_timestamp: None,
+        }
+    }
+
+    #[test]
+    fn window_update_clears_focus_when_the_focused_window_loses_focus() {
+        let mut state = State {
+            focused_workspace: Some(1),
+            ..State::default()
+        };
+        assert!(handle_event(
+            Event::WindowsChanged {
+                windows: vec![ipc_window(1, true)],
+            },
+            &mut state,
+        ));
+        assert_eq!(render(&config(), &state), "x");
+
+        assert!(handle_event(
+            Event::WindowOpenedOrChanged {
+                window: ipc_window(1, false),
+            },
+            &mut state,
+        ));
+        assert_eq!(state.focused_window, None);
+        assert_eq!(render(&config(), &state), "o");
+        assert!(!handle_event(
+            Event::WindowOpenedOrChanged {
+                window: ipc_window(1, false),
+            },
+            &mut state,
+        ));
+    }
+
+    #[test]
+    fn unfocused_window_update_preserves_another_windows_focus() {
+        let mut state = State::default();
+        handle_event(
+            Event::WindowsChanged {
+                windows: vec![ipc_window(1, true), ipc_window(2, false)],
+            },
+            &mut state,
+        );
+
+        assert!(!handle_event(
+            Event::WindowOpenedOrChanged {
+                window: ipc_window(2, false),
+            },
+            &mut state,
+        ));
+        assert_eq!(state.focused_window, Some(1));
+
+        assert!(handle_event(
+            Event::WindowOpenedOrChanged {
+                window: ipc_window(2, true),
+            },
+            &mut state,
+        ));
+        assert_eq!(state.focused_window, Some(2));
     }
 
     #[test]
