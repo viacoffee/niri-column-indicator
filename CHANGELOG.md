@@ -6,6 +6,10 @@
 
 - Configurable separator between column indicators.
 
+### Changed
+
+- Improve column rendering and event-handling performance.
+
 ### Fixed
 
 - Clear stale column focus when a window update reports that the focused window has lost focus.

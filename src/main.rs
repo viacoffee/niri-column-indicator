@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     io::{self, Write},
     thread,
     time::Duration,
@@ -88,6 +88,7 @@ fn update_window(window: &IpcWindow, state: &mut State) -> bool {
     focus_changed || (changed && (was_visible || is_visible))
 }
 
+#[inline(always)]
 fn handle_event(event: Event, state: &mut State) -> bool {
     match event {
         Event::WindowsChanged { windows } => {
@@ -160,9 +161,20 @@ fn handle_event(event: Event, state: &mut State) -> bool {
 }
 
 fn render(config: &Config, state: &State) -> String {
-    let mut columns = BTreeMap::new();
+    if state.windows.is_empty() {
+        return String::new();
+    }
+    // Keep ordinary column indices on the stack without allocating per column.
+    // Sparse or unusually large indices still work through the overflow list.
+    let mut bits = [0u64; 16];
+    let mut columns = Vec::new();
+    let active_column = state
+        .focused_window
+        .and_then(|id| state.windows.get(&id))
+        .filter(|window| is_visible(window, state.focused_workspace))
+        .and_then(|window| window.position.map(|(column, _)| column));
 
-    for (&window_id, window) in &state.windows {
+    for window in state.windows.values() {
         let Some((column, _)) = window.position else {
             continue;
         };
@@ -170,14 +182,21 @@ fn render(config: &Config, state: &State) -> String {
             continue;
         }
 
-        let is_active = Some(window_id) == state.focused_window;
-        columns
-            .entry(column)
-            .and_modify(|active| *active |= is_active)
-            .or_insert(is_active);
+        if column < bits.len() * 64 {
+            bits[column / 64] |= 1 << (column % 64);
+        } else {
+            columns.push(column);
+        }
     }
+    columns.sort_unstable();
+    columns.dedup();
 
-    if config.hide_single && columns.len() <= 1 {
+    let column_count = bits
+        .iter()
+        .map(|word| word.count_ones() as usize)
+        .sum::<usize>()
+        + columns.len();
+    if config.hide_single && column_count <= 1 {
         return String::new();
     }
 
@@ -185,12 +204,24 @@ fn render(config: &Config, state: &State) -> String {
         Layout::Horizontal => " ",
         Layout::Vertical => "\n",
     });
-    let mut text = String::new();
-    for (index, is_active) in columns.into_values().enumerate() {
+    let mut text = String::with_capacity(
+        column_count * (config.active.len().max(config.inactive.len()) + separator.len()),
+    );
+    let small_columns = bits.into_iter().enumerate().flat_map(|(index, mut word)| {
+        std::iter::from_fn(move || {
+            if word == 0 {
+                return None;
+            }
+            let bit = word.trailing_zeros() as usize;
+            word &= word - 1;
+            Some(index * 64 + bit)
+        })
+    });
+    for (index, column) in small_columns.chain(columns).enumerate() {
         if index > 0 {
             text.push_str(separator);
         }
-        text.push_str(if is_active {
+        text.push_str(if Some(column) == active_column {
             &config.active
         } else {
             &config.inactive
@@ -293,6 +324,66 @@ mod tests {
                 window_offset_in_tile: (0.0, 0.0),
             },
             focus_timestamp: None,
+        }
+    }
+
+    #[test]
+    fn bitset_renderer_matches_tree_renderer() {
+        let mut state = State {
+            focused_workspace: Some(1),
+            ..State::default()
+        };
+        let positions = [0, 1, 63, 64, 255, 256, 1023, 1024, usize::MAX];
+        for id in 0..90u64 {
+            state.windows.insert(
+                id,
+                Window {
+                    workspace: Some(if id % 7 == 0 { 2 } else { 1 }),
+                    floating: id % 11 == 0,
+                    position: (id % 13 != 0)
+                        .then_some((positions[id as usize % positions.len()], 0)),
+                },
+            );
+        }
+        for focus in (0..91).map(Some).chain([None]) {
+            state.focused_window = focus;
+            for hide_single in [false, true] {
+                for layout in [Layout::Horizontal, Layout::Vertical] {
+                    let mut config = config();
+                    config.hide_single = hide_single;
+                    config.layout = layout;
+                    let mut columns = std::collections::BTreeMap::new();
+                    for (&id, window) in &state.windows {
+                        if is_visible(window, state.focused_workspace) {
+                            let column = window.position.unwrap().0;
+                            let active = Some(id) == focus;
+                            columns
+                                .entry(column)
+                                .and_modify(|value| *value |= active)
+                                .or_insert(active);
+                        }
+                    }
+                    let expected = if hide_single && columns.len() <= 1 {
+                        String::new()
+                    } else {
+                        columns
+                            .into_values()
+                            .map(|active| {
+                                if active {
+                                    config.active.as_str()
+                                } else {
+                                    config.inactive.as_str()
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join(match layout {
+                                Layout::Horizontal => " ",
+                                Layout::Vertical => "\n",
+                            })
+                    };
+                    assert_eq!(render(&config, &state), expected);
+                }
+            }
         }
     }
 
