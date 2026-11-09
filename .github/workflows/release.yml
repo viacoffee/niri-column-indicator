@@ -1,0 +1,122 @@
+name: Release Arch package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    environment: release
+
+    env:
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+
+    steps:
+      - name: Install build tools
+        run: |
+          pacman -Syu --noconfirm \
+            base-devel rust git python gnupg github-cli sudo
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+
+          tag = os.environ["RELEASE_TAG"]
+          if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+              raise SystemExit("Expected a stable tag such as v1.2.0")
+
+          with open("Cargo.toml", "rb") as source:
+              version = tomllib.load(source)["package"]["version"]
+
+          if tag != f"v{version}":
+              raise SystemExit("The tag must match Cargo.toml")
+          PY
+
+      - name: Build and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          useradd --create-home builder
+          echo 'builder ALL=(root) NOPASSWD: /usr/bin/pacman' \
+            > /etc/sudoers.d/builder
+          chmod 440 /etc/sudoers.d/builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+          sudo -u builder bash -c '
+            source PKGBUILD
+            if [[ "v$pkgver" != "$1" ]]; then
+              echo "The tag must match PKGBUILD pkgver"
+              exit 1
+            fi
+          ' _ "$RELEASE_TAG"
+          sudo -u builder cargo test --locked
+          build_directory="$(mktemp -d)"
+          chown builder:builder "$build_directory"
+          sudo -u builder env BUILDDIR="$build_directory" \
+            makepkg --syncdeps --noconfirm --cleanbuild
+
+          mkdir -p dist
+          mapfile -t packages < <(
+            find . -maxdepth 1 -type f -name '*.pkg.tar.zst'
+          )
+          if [[ ${#packages[@]} -ne 1 ]]; then
+            echo 'Expected exactly one package'
+            exit 1
+          fi
+          cp -- "${packages[0]}" dist/
+
+      - name: Sign package
+        shell: bash
+        env:
+          PRIVATE_KEY: ${{ secrets.REPOSITORY_SIGNING_KEY }}
+          SIGNING_KEY_FINGERPRINT: ${{ vars.SIGNING_KEY_FINGERPRINT }}
+        run: |
+          set -euo pipefail
+          GNUPGHOME="$(mktemp -d)"
+          export GNUPGHOME
+          trap 'rm -rf "$GNUPGHOME"' EXIT
+
+          printf '%s' "$PRIVATE_KEY" | gpg --batch --import
+
+          for package in dist/*.pkg.tar.zst; do
+            gpg --batch --yes \
+              --local-user "$SIGNING_KEY_FINGERPRINT" \
+              --output "$package.sig" \
+              --detach-sign "$package"
+            gpg --batch --verify "$package.sig" "$package"
+          done
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            --verify-tag \
+            --draft \
+            --title "$RELEASE_TAG" \
+            --generate-notes
+
+          gh release upload "$RELEASE_TAG" dist/*
+          gh release edit "$RELEASE_TAG" --draft=false

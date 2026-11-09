@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-09
+
+### Added
+
+- Signed Arch packages published through GitHub Actions.
+
 ## [1.1.0] - 2026-10-24
 
 ### Added
@@ -27,6 +33,7 @@
 - Configurable active and inactive indicators.
 - Option to hide the indicator for a single column.
 
-[Unreleased]: https://github.com/viacoffee/niri-column-indicator/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/viacoffee/niri-column-indicator/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/viacoffee/niri-column-indicator/releases/tag/v1.1.1
 [1.1.0]: https://github.com/viacoffee/niri-column-indicator/releases/tag/v1.1.0
 [1.0.0]: https://github.com/viacoffee/niri-column-indicator/releases/tag/v1.0.0
