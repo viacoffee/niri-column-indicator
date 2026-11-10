@@ -85,3 +85,5 @@ cargo build --release
 ```
 
 The binary is written to `target/release/niri-column-indicator`.
+
+Releases are signed with this [OpenPGP key](https://keys.openpgp.org/search?q=9CC8CB3C0CF8A1EFFDC71BEA9D7919B8447107C9).
